@@ -145,8 +145,7 @@ endividamento) e três mudanças de método:
 
 A v3 mantém a estrutura da v2 e muda o que mais importa: a **medida de juros**.
 
-1. **Proxy de juros**: em vez da taxa referencial (432), usa-se a **taxa média
-   efetivamente paga** nas operações de crédito às pessoas físicas (20716). Também
+1. **Proxy de juros**: em vez da taxa referencial (432), usa-se a **taxa média efetiva das novas operações de crédito** às pessoas físicas (20716). Também
    se deriva uma **taxa de juros real** (taxa efetiva deflacionada pelo IPCA em 12
    meses). Como as medidas de juros são correlacionadas, cada especificação usa
    **apenas uma**.
@@ -238,8 +237,8 @@ parte da inadimplência recente pode ter causas que o modelo não isola.
 
 #### **Leitura para o time de negócios**
 
-**Manchete:** juros mais altos tendem a elevar a inadimplência cerca de **2
-trimestres depois** — mas só quando olhamos a **taxa que o cliente realmente paga**,
+**Conclusao:** juros mais altos tendem a elevar a inadimplência cerca de **2
+trimestres depois** — mas só quando olhamos a **taxa média efetiva das novas operações de crédito PF**,
 não a referencial.
 
 - **Use a taxa efetiva (SGS 20716), não a referencial (SGS 432).** A efetiva é forte
