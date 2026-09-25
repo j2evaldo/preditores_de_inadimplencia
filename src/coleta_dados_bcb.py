@@ -4,12 +4,16 @@ Coleta de dados do Banco Central do Brasil (SGS - Sistema Gerenciador de Séries
 API pública, sem necessidade de chave: https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados
 
 Séries utilizadas neste projeto:
-- 432   : Taxa de juros - Livre - Referencial (% a.a.)
-- 21084 : Inadimplência da carteira de crédito - Pessoas físicas - Total (%)
+- 432   : Taxa de juros - Livre - Referencial (% a.a.), diária
+- 21084 : Inadimplência da carteira de crédito - Pessoas físicas - Total (%), mensal
+- 433   : IPCA - Variação mensal (%), mensal
+- 29037 : Endividamento das famílias com o SFN em relação à renda acumulada
+          nos últimos 12 meses (%), mensal
 """
 from __future__ import annotations
 
 import datetime as dt
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -20,6 +24,17 @@ BASE_URL = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados"
 SERIES = {
     "taxa_juros": 432,      # Taxa de juros - Livre - Referencial (% a.a.)
     "inadimplencia_pf": 21084,  # Inadimplência PF - Total (%)
+    "ipca": 433,            # IPCA - Variação mensal (%)
+    "endividamento_familias": 29037,  # Endividamento das famílias (% da renda)
+}
+
+# Como cada série é resumida quando agregada ao mês.
+# A taxa de juros é diária e vira média do mês; as demais já são mensais.
+AGREGACAO_MENSAL = {
+    "taxa_juros": "mean",
+    "inadimplencia_pf": "last",
+    "ipca": "last",
+    "endividamento_familias": "last",
 }
 
 RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"
@@ -33,6 +48,33 @@ def _intervalos_consulta(inicio: dt.date, fim: dt.date):
         limite = min(cursor + dt.timedelta(days=2 * 365 - 1), fim)
         yield cursor, limite
         cursor = limite + dt.timedelta(days=1)
+
+
+def _requisitar_json(url: str, params: dict, tentativas: int = 5, pausa: float = 2.0):
+    """Consulta a API com retentativas; o SGS falha de forma intermitente (502/HTML).
+
+    Retorna a lista de observações ou `[]` quando o período não tem dados.
+    """
+    ultimo_erro = "sem resposta"
+    for tentativa in range(tentativas):
+        resp = requests.get(url, params=params, timeout=60)
+
+        if resp.status_code == 404:
+            try:
+                detalhe = resp.json().get("erro", {}).get("detail", "")
+            except ValueError:
+                detalhe = ""
+            if detalhe.endswith("Value(s) not found"):
+                return []
+
+        if resp.status_code == 200 and resp.text.lstrip().startswith("["):
+            return resp.json()
+
+        ultimo_erro = f"HTTP {resp.status_code}"
+        if tentativa < tentativas - 1:
+            time.sleep(pausa * (2 ** tentativa))
+
+    raise RuntimeError(f"Falha ao consultar {url}: {ultimo_erro}")
 
 
 def fetch_series(codigo: int, data_inicial: str, data_final: str) -> pd.DataFrame:
@@ -52,13 +94,7 @@ def fetch_series(codigo: int, data_inicial: str, data_final: str) -> pd.DataFram
             "dataInicial": inicio_bloco.strftime("%d/%m/%Y"),
             "dataFinal": fim_bloco.strftime("%d/%m/%Y"),
         }
-        resp = requests.get(url, params=params, timeout=60)
-        if resp.status_code == 404:
-            erro = resp.json().get("erro", {})
-            if erro.get("detail", "").endswith("Value(s) not found"):
-                continue
-        resp.raise_for_status()
-        dados = resp.json()
+        dados = _requisitar_json(url, params)
         if dados:
             blocos.append(pd.DataFrame(dados))
 
@@ -122,7 +158,8 @@ def montar_dataset_consolidado(series: dict[str, pd.DataFrame] | None = None) ->
     for nome, df in series.items():
         df = df[["data", nome]].copy()
         df["mes"] = df["data"].dt.to_period("M")
-        if nome == "taxa_juros":
+        agregacao = AGREGACAO_MENSAL[nome]
+        if agregacao == "mean":
             df = df.groupby("mes", as_index=False)[nome].mean()
         else:
             df = df.groupby("mes", as_index=False)[nome].last()
