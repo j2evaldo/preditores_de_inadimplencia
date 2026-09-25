@@ -9,6 +9,10 @@ Séries utilizadas neste projeto:
 - 433   : IPCA - Variação mensal (%), mensal
 - 29037 : Endividamento das famílias com o SFN em relação à renda acumulada
           nos últimos 12 meses (%), mensal
+- 20716 : Taxa média de juros das operações de crédito - Pessoas físicas - Total
+          (% a.a.), mensal
+- 24364 : Índice de Atividade Econômica do Banco Central (IBC-Br), com ajuste
+          sazonal, mensal
 """
 from __future__ import annotations
 
@@ -26,15 +30,19 @@ SERIES = {
     "inadimplencia_pf": 21084,  # Inadimplência PF - Total (%)
     "ipca": 433,            # IPCA - Variação mensal (%)
     "endividamento_familias": 29037,  # Endividamento das famílias (% da renda)
+    "juros_efetivos_pf": 20716,  # Taxa média de juros das operações de crédito PF (% a.a.)
+    "ibc_br": 24364,        # IBC-Br (atividade econômica), com ajuste sazonal
 }
 
 # Como cada série é resumida quando agregada ao mês.
-# A taxa de juros é diária e vira média do mês; as demais já são mensais.
+# A taxa de juros referencial é diária e vira média do mês; as demais já são mensais.
 AGREGACAO_MENSAL = {
     "taxa_juros": "mean",
     "inadimplencia_pf": "last",
     "ipca": "last",
     "endividamento_familias": "last",
+    "juros_efetivos_pf": "last",
+    "ibc_br": "last",
 }
 
 RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"

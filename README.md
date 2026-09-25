@@ -9,12 +9,15 @@ para descrever padrões e testar se o passado de uma série ajuda a prever a out
 Isso é diferente de provar que juros causam inadimplência: renda, emprego, inflação,
 endividamento e decisões dos bancos também podem influenciar o resultado.
 
-O projeto tem duas etapas. A **v1** (`notebooks/analise_econometrica.ipynb`) compara
-apenas juros e inadimplência. A **v2** (`notebooks/analise_com_controles.ipynb`)
-acrescenta controles macroeconômicos (IPCA e endividamento das famílias) e corrige a
-base estatística: reavalia a ordem de integração com mais testes, trata a
-cointegração explicitamente e estima a resposta ao longo do tempo por projeções
-locais.
+O projeto tem três etapas. A **v1** (`notebooks/analise_econometrica_v1.ipynb`)
+compara apenas juros e inadimplência. A **v2**
+(`notebooks/analise_com_controles_v2.ipynb`) acrescenta controles macroeconômicos
+(IPCA e endividamento das famílias) e corrige a base estatística: reavalia a ordem
+de integração com mais testes, trata a cointegração explicitamente e estima a
+resposta ao longo do tempo por projeções locais. A **v3**
+(`notebooks/analise_com_controles_v3.ipynb`) troca o proxy de juros pela **taxa
+efetiva** paga pelas pessoas físicas, controla pela **atividade econômica** e discute
+o boom das **bets** como explicação concorrente.
 
 #### **Dados utilizados**
 
@@ -24,6 +27,8 @@ locais.
 | `inadimplencia_pf` | 21084 | Inadimplência da carteira de crédito - Pessoas Físicas - Total (%), mensal |
 | `ipca` | 433 | IPCA - Variação mensal (%), mensal |
 | `endividamento_familias` | 29037 | Endividamento das famílias com o SFN em relação à renda acumulada nos últimos 12 meses (%) |
+| `juros_efetivos_pf` | 20716 | Taxa média de juros das operações de crédito - Pessoas físicas - Total (% a.a.), mensal |
+| `ibc_br` | 24364 | Índice de Atividade Econômica do Banco Central (IBC-Br), com ajuste sazonal |
 
 Fonte: API pública do BCB — `https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados`
 (não requer chave de acesso).
@@ -40,8 +45,9 @@ da API; períodos sem observações são tratados como ausência de dados.
 │   ├── raw/            # séries brutas baixadas do BCB (CSV, uma por série)
 │   └── processed/      # dataset_consolidado.csv (séries unidas por data)
 ├── notebooks/
-│   ├── analise_econometrica.ipynb    # v1: análise bivariada
-│   └── analise_com_controles.ipynb   # v2: controles + cointegração + projeções locais
+│   ├── analise_econometrica_v1.ipynb       # v1: análise bivariada
+│   ├── analise_com_controles_v2.ipynb      # v2: controles + cointegração + projeções locais
+│   └── analise_com_controles_v3.ipynb      # v3: juros efetivos + atividade + bets
 ├── src/
 │   ├── coleta_dados_bcb.py           # coleta via API do BCB
 │   ├── toda_yamamoto.py              # teste de Wald modificado
@@ -84,8 +90,9 @@ da API; períodos sem observações são tratados como ausência de dados.
    ```
 
 3. Abra e execute os notebooks:
-   - `notebooks/analise_econometrica.ipynb` (v1, análise bivariada);
-   - `notebooks/analise_com_controles.ipynb` (v2, controles e projeções locais).
+   - `notebooks/analise_econometrica_v1.ipynb` (v1, análise bivariada);
+   - `notebooks/analise_com_controles_v2.ipynb` (v2, controles e projeções locais);
+   - `notebooks/analise_com_controles_v3.ipynb` (v3, juros efetivos, atividade e bets).
 
 #### **Metodologia da análise**
 
@@ -134,6 +141,23 @@ endividamento) e três mudanças de método:
    bandas de confiança. Isso evita a sobreparametrização de um VAR grande e permite
    comparar com e sem controles.
 
+#### **Extensão da v3: juros efetivos, atividade e bets**
+
+A v3 mantém a estrutura da v2 e muda o que mais importa: a **medida de juros**.
+
+1. **Proxy de juros**: em vez da taxa referencial (432), usa-se a **taxa média
+   efetivamente paga** nas operações de crédito às pessoas físicas (20716). Também
+   se deriva uma **taxa de juros real** (taxa efetiva deflacionada pelo IPCA em 12
+   meses). Como as medidas de juros são correlacionadas, cada especificação usa
+   **apenas uma**.
+2. **Atividade econômica**: o IBC-Br (24364, com ajuste sazonal) entra como controle
+   do ciclo, em primeira diferença do log.
+3. **Explicação concorrente — bets**: como o boom das apostas online ocorreu no fim
+   da amostra, o notebook investiga (a) um deslocamento pós-2023, (b) quebra
+   estrutural por Zivot–Andrews e (c) uma interação `juros × pós-2023`. Não há série
+   pública mensal de bets, então a análise é exploratória e a limitação fica
+   registrada.
+
 #### **Resultados da v1 (bivariada)**
 
 Com 185 observações mensais comuns (mar/2011–jul/2026), o AIC selecionou `k=7` e o
@@ -180,3 +204,57 @@ especificação, os juros passam a ter mais conteúdo preditivo sobre a inadimpl
 que a v1 sugeria**. Mas a evidência ainda **depende de `dmax`** e o teste do VECM é
 limítrofe. Isso é precedência preditiva condicional, não uma estimativa causal; a
 sensibilidade mostra que a conclusão não é robusta o bastante para afirmar um efeito.
+
+#### **Resultados da v3 (juros efetivos e atividade)**
+
+Com 184 observações mensais comuns (mar/2011–jun/2026) e seis séries. A taxa efetiva
+mediana é de **32,5% a.a.**, contra **11,0% a.a.** da referencial — são medidas
+distintas. O Toda–Yamamoto passa a comparar as três medidas de juros:
+
+| dmax | Causa → inadimplência | Wald | gl | p-valor |
+|---:|---|---:|---:|---:|
+| 1 | taxa referencial (432) | 13,859 | 6 | 0,031 |
+| 1 | **taxa efetiva (20716)** | 29,971 | 6 | **0,000** |
+| 1 | juros real | 23,212 | 6 | 0,001 |
+| 2 | taxa referencial (432) | 10,740 | 6 | 0,097 |
+| 2 | **taxa efetiva (20716)** | 29,733 | 6 | **0,000** |
+| 2 | juros real | 22,877 | 6 | 0,001 |
+
+A leitura principal: **a taxa referencial é sensível a `dmax`; a taxa efetiva e a
+real permanecem fortemente significativas nos dois casos**. Escolher a taxa realmente
+paga torna o resultado robusto, e não artefato da ordem de integração.
+
+Nas **projeções locais**, a taxa efetiva antecipa a resposta (pico perto de 6 meses),
+enquanto a referencial concentra a resposta mais tarde (≈14 meses); o IBC-Br muda
+pouco o canal. O quadro não é de "mais significância", e sim de uma resposta mais bem
+identificada no tempo.
+
+**Sobre as bets**: há 42 meses após 2023 na amostra. A inadimplência média sobe de
+4,01 para 4,33 (deslocamento de +0,32 p.p., p ≈ 0,24), o Zivot–Andrews **não detecta
+quebra** (p ≈ 0,86) e a interação `juros × pós-2023` é **instável** (troca de sinal
+entre horizontes). Não há série pública mensal de bets. Conclusão honesta: o boom é
+uma **ameaça real à interpretação**, mas não é mensurável com os dados disponíveis;
+parte da inadimplência recente pode ter causas que o modelo não isola.
+
+#### **Leitura para o time de negócios**
+
+**Manchete:** juros mais altos tendem a elevar a inadimplência cerca de **2
+trimestres depois** — mas só quando olhamos a **taxa que o cliente realmente paga**,
+não a referencial.
+
+- **Use a taxa efetiva (SGS 20716), não a referencial (SGS 432).** A efetiva é forte
+  e robusta; a referencial dá sinal fraco e instável.
+- **A defasagem é de ~6 meses** — dá janela para planejar provisão e cobrança.
+- **A atividade econômica (IBC-Br) contextualiza, mas não substitui os juros.**
+- **As bets são o ponto fora da curva no fim da amostra**, sem série pública para
+  medição; leia a alta recente com cautela.
+- **É previsão, não causa comprovada.** Serve para antecipar risco, não para afirmar
+  que "o juro causou".
+
+**O que fazer:** adotar a taxa efetiva PF como indicador antecedente de inadimplência
+(~6 meses); reforçar provisão/cobrança após ciclos de alta de juros; criar um monitor
+de bets enquanto não houver série oficial; não usar o resultado para decisões de
+política ou promessas causais.
+
+As seções "Para o time de negócios" dos notebooks aprofundam essa leitura, adaptada
+a cada versão (v1, v2 e v3).
