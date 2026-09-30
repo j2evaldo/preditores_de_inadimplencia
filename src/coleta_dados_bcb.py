@@ -13,6 +13,8 @@ Séries utilizadas neste projeto:
           (% a.a.), mensal
 - 24364 : Índice de Atividade Econômica do Banco Central (IBC-Br), com ajuste
           sazonal, mensal
+- 29034 : Comprometimento de renda das famílias com o serviço da dívida com o
+          SFN, com ajuste sazonal (%), mensal
 """
 from __future__ import annotations
 
@@ -32,6 +34,7 @@ SERIES = {
     "endividamento_familias": 29037,  # Endividamento das famílias (% da renda)
     "juros_efetivos_pf": 20716,  # Taxa média de juros das operações de crédito PF (% a.a.)
     "ibc_br": 24364,        # IBC-Br (atividade econômica), com ajuste sazonal
+    "comprometimento_renda": 29034,  # Comprometimento de renda das famílias (% da renda)
 }
 
 # Como cada série é resumida quando agregada ao mês.
@@ -43,6 +46,7 @@ AGREGACAO_MENSAL = {
     "endividamento_familias": "last",
     "juros_efetivos_pf": "last",
     "ibc_br": "last",
+    "comprometimento_renda": "last",
 }
 
 RAW_DIR = Path(__file__).resolve().parents[1] / "data" / "raw"

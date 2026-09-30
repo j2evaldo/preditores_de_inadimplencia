@@ -9,7 +9,7 @@ para descrever padrões e testar se o passado de uma série ajuda a prever a out
 Isso é diferente de provar que juros causam inadimplência: renda, emprego, inflação,
 endividamento e decisões dos bancos também podem influenciar o resultado.
 
-O projeto tem três etapas. A **v1** (`notebooks/analise_econometrica_v1.ipynb`)
+O projeto tem quatro etapas. A **v1** (`notebooks/analise_econometrica_v1.ipynb`)
 compara apenas juros e inadimplência. A **v2**
 (`notebooks/analise_com_controles_v2.ipynb`) acrescenta controles macroeconômicos
 (IPCA e endividamento das famílias) e corrige a base estatística: reavalia a ordem
@@ -17,7 +17,9 @@ de integração com mais testes, trata a cointegração explicitamente e estima 
 resposta ao longo do tempo por projeções locais. A **v3**
 (`notebooks/analise_com_controles_v3.ipynb`) troca o proxy de juros pela **taxa
 efetiva** paga pelas pessoas físicas, controla pela **atividade econômica** e discute
-o boom das **bets** como explicação concorrente.
+o boom das **bets** como explicação concorrente. A **v4**
+(`notebooks/analise_com_controles_v4.ipynb`) pergunta **de quem é o sinal**,
+acrescentando o **comprometimento de renda** e comparando os controles lado a lado.
 
 #### **Dados utilizados**
 
@@ -29,6 +31,7 @@ o boom das **bets** como explicação concorrente.
 | `endividamento_familias` | 29037 | Endividamento das famílias com o SFN em relação à renda acumulada nos últimos 12 meses (%) |
 | `juros_efetivos_pf` | 20716 | Taxa média de juros das operações de crédito - Pessoas físicas - Total (% a.a.), mensal |
 | `ibc_br` | 24364 | Índice de Atividade Econômica do Banco Central (IBC-Br), com ajuste sazonal |
+| `comprometimento_renda` | 29034 | Comprometimento de renda das famílias com o serviço da dívida com o SFN, com ajuste sazonal (%) |
 
 Fonte: API pública do BCB — `https://api.bcb.gov.br/dados/serie/bcdata.sgs.{codigo}/dados`
 (não requer chave de acesso).
@@ -47,7 +50,8 @@ da API; períodos sem observações são tratados como ausência de dados.
 ├── notebooks/
 │   ├── analise_econometrica_v1.ipynb       # v1: análise bivariada
 │   ├── analise_com_controles_v2.ipynb      # v2: controles + cointegração + projeções locais
-│   └── analise_com_controles_v3.ipynb      # v3: juros efetivos + atividade + bets
+│   ├── analise_com_controles_v3.ipynb      # v3: juros efetivos + atividade + bets
+│   └── analise_com_controles_v4.ipynb      # v4: de quem é o sinal (endividamento + comprometimento)
 ├── src/
 │   ├── coleta_dados_bcb.py           # coleta via API do BCB
 │   ├── toda_yamamoto.py              # teste de Wald modificado
@@ -92,7 +96,8 @@ da API; períodos sem observações são tratados como ausência de dados.
 3. Abra e execute os notebooks:
    - `notebooks/analise_econometrica_v1.ipynb` (v1, análise bivariada);
    - `notebooks/analise_com_controles_v2.ipynb` (v2, controles e projeções locais);
-   - `notebooks/analise_com_controles_v3.ipynb` (v3, juros efetivos, atividade e bets).
+   - `notebooks/analise_com_controles_v3.ipynb` (v3, juros efetivos, atividade e bets);
+   - `notebooks/analise_com_controles_v4.ipynb` (v4, endividamento, comprometimento e bets).
 
 #### **Metodologia da análise**
 
@@ -156,6 +161,19 @@ A v3 mantém a estrutura da v2 e muda o que mais importa: a **medida de juros**.
    estrutural por Zivot–Andrews e (c) uma interação `juros × pós-2023`. Não há série
    pública mensal de bets, então a análise é exploratória e a limitação fica
    registrada.
+
+#### **Extensão da v4: de quem é o sinal?**
+
+A v4 separa o **estoque** de dívida do **serviço** da dívida e põe os controles para
+competir:
+
+1. **Comprometimento de renda** (29034): acrescentado ao endividamento (29037); as
+   duas medidas são correlacionadas (≈0,82 em nível), mas medem coisas distintas.
+2. **Granger e feedback**: testa o conteúdo preditivo de cada candidato sobre a
+   inadimplência e o sentido inverso (inadimplência → juros).
+3. **Horse race nas projeções locais**: a resposta aos juros é reestimada variando os
+   controles, para ver se ela sobrevive; inclui a sensibilidade da cointegração à
+   composição das variáveis.
 
 #### **Resultados da v1 (bivariada)**
 
@@ -235,6 +253,29 @@ entre horizontes). Não há série pública mensal de bets. Conclusão honesta: 
 uma **ameaça real à interpretação**, mas não é mensurável com os dados disponíveis;
 parte da inadimplência recente pode ter causas que o modelo não isola.
 
+#### **Resultados da v4 (de quem é o sinal?)**
+
+Com 185 observações mensais comuns (mar/2011–jul/2026) e sete séries.
+
+- **Granger (menor p-valor F, 1 a 6 defasagens)** sobre a inadimplência: o
+  **comprometimento de renda** é o mais forte (p ≈ 0,000), seguido pelos **juros
+  efetivos** (p ≈ 0,0001) e pelo **IBC-Br** (p ≈ 0,001); endividamento (estoque) e
+  taxa referencial vêm atrás (p ≈ 0,008). O IPCA não ajuda (p ≈ 0,20).
+- **Feedback**: o sentido inverso **inadimplência → juros efetivos** também é
+  significativo (p ≈ 0,01) — previsão bidirecional, não via causal única.
+- **Horse race nas projeções locais**: a resposta aos juros sobrevive a todos os
+  controles, com pico em ~6 meses em todas as especificações.
+- **Cointegração frágil**: o Johansen dá **posto 1** quando o IPCA entra no conjunto e
+  **posto 0** sem ele (ver composição A–D no notebook). Por isso a análise se apoia
+  em diferenças/projeções locais, não em VECM.
+- **Toda–Yamamoto**: a taxa efetiva permanece significativa com `dmax=1` e `dmax=2`
+  (p ≈ 0,0001); a referencial oscila (p ≈ 0,04 e 0,13).
+- **Bets**: deslocamento pós-2023 de +0,355 p.p. (p ≈ 0,20), sem quebra estrutural
+  (Zivot–Andrews p ≈ 0,99) e interação instável — seguem não mensuráveis.
+
+Leitura: **juros efetivos e comprometimento de renda são os melhores sinalizadores da
+inadimplência; nenhum anula o outro**, e a interpretação permanece preditiva.
+
 #### **Leitura para o time de negócios**
 
 **Conclusao:** juros mais altos tendem a elevar a inadimplência cerca de **2
@@ -243,17 +284,19 @@ não a referencial.
 
 - **Use a taxa efetiva (SGS 20716), não a referencial (SGS 432).** A efetiva é forte
   e robusta; a referencial dá sinal fraco e instável.
+- **Some o comprometimento de renda (SGS 29034) ao radar.** Ele é o preditor mais
+  forte da inadimplência e o efeito dos juros sobrevive ao seu controle.
 - **A defasagem é de ~6 meses** — dá janela para planejar provisão e cobrança.
 - **A atividade econômica (IBC-Br) contextualiza, mas não substitui os juros.**
 - **As bets são o ponto fora da curva no fim da amostra**, sem série pública para
   medição; leia a alta recente com cautela.
-- **É previsão, não causa comprovada.** Serve para antecipar risco, não para afirmar
-  que "o juro causou".
+- **É previsão, não causa comprovada.** Há feedback entre inadimplência e juros; não
+  use para afirmar que "o juro causou".
 
-**O que fazer:** adotar a taxa efetiva PF como indicador antecedente de inadimplência
-(~6 meses); reforçar provisão/cobrança após ciclos de alta de juros; criar um monitor
-de bets enquanto não houver série oficial; não usar o resultado para decisões de
-política ou promessas causais.
+**O que fazer:** adotar o par **taxa efetiva PF + comprometimento de renda** como
+painel de alerta antecedente (~6 meses); reforçar provisão/cobrança após ciclos de
+alta de juros; criar um monitor de bets enquanto não houver série oficial; não usar o
+resultado para decisões de política ou promessas causais.
 
 As seções "Para o time de negócios" dos notebooks aprofundam essa leitura, adaptada
-a cada versão (v1, v2 e v3).
+a cada versão (v1 a v4).
